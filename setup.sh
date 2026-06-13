@@ -47,7 +47,7 @@ else
   cat > "$GLOBAL_CONFIG" << 'DEVENDOF' || { echo "Error: cannot write $GLOBAL_CONFIG"; exit 3; }
 {
   "packages": [
-    "nodejs@22"
+    "nodejs@26"
   ],
   "env": {
     "NPM_CONFIG_PREFIX": "$HOME/.pi-box/npm",

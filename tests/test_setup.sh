@@ -143,7 +143,7 @@ assert_file_exists "fresh install creates devbox.json" "$GLOBAL_CONFIG"
 assert_valid_json "fresh install produces valid JSON" "$GLOBAL_CONFIG"
 
 CONFIG_CONTENT=$(cat "$GLOBAL_CONFIG")
-assert_contains "config has nodejs@22" "$CONFIG_CONTENT" 'nodejs@22'
+assert_contains "config has nodejs@26" "$CONFIG_CONTENT" 'nodejs@26'
 assert_contains "config has NPM_CONFIG_PREFIX" "$CONFIG_CONTENT" 'NPM_CONFIG_PREFIX'
 assert_contains "config has PATH env" "$CONFIG_CONTENT" '.pi-box/npm/bin'
 assert_contains "config has init_hook" "$CONFIG_CONTENT" 'init_hook'
@@ -207,7 +207,7 @@ EXIT_CODE=$?
 
 assert_exit "--force exits 0" 0 "$EXIT_CODE"
 CONFIG_CONTENT=$(cat "$GLOBAL_CONFIG")
-assert_contains "--force restores nodejs@22" "$CONFIG_CONTENT" 'nodejs@22'
+assert_contains "--force restores nodejs@26" "$CONFIG_CONTENT" 'nodejs@26'
 if echo "$CONFIG_CONTENT" | grep -q 'python'; then
   echo "  FAIL: --force removes python (config still has python)"
   FAIL=$((FAIL + 1))

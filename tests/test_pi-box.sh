@@ -520,7 +520,7 @@ cat > "$TEST_HOME/bin/devbox" << 'FAKEDEVBOX'
 echo "devbox called with: $*" >> "$HOME/devbox-calls.log"
 if [[ "$*" == *"global shellenv --init-hook"* ]]; then
   echo "Info: Ensuring packages are installed." >&2
-  echo "Error: nix: command error: nix --extra-experimental-features ca-derivations --option experimental-features 'nix-command flakes fetch-closure' path-info --offline --json /nix/store/ac9bklddx1klg92hj7r08xmpky1nwag2-nodejs-22.22.3: creating directory \"/nix/store\": Permission denied: exit code 1" >&2
+  echo "Error: nix: command error: nix --extra-experimental-features ca-derivations --option experimental-features 'nix-command flakes fetch-closure' path-info --offline --json /nix/store/ac9bklddx1klg92hj7r08xmpky1nwag2-nodejs-26.0.0: creating directory \"/nix/store\": Permission denied: exit code 1" >&2
   echo "Error: There was an internal error. Run with DEVBOX_DEBUG=1 for a detailed error message, and consider reporting it at https://github.com/jetify-com/devbox/issues" >&2
   # Emit shellenv WITHOUT pi in PATH — simulates devbox exiting 0 but broken env
   echo "export PATH=\"/usr/bin:/bin\""

@@ -116,7 +116,7 @@ pi-box uses devbox's two-level configuration:
 
 | Layer | Location | Purpose |
 |-------|----------|---------|
-| **Base box** | `~/.local/share/devbox/global/default/devbox.json` | Provides `nodejs@22`, Pi, and the context7 extension. Configured once by `setup.sh`. |
+| **Base box** | `~/.local/share/devbox/global/default/devbox.json` | Provides `nodejs@26`, Pi, and the context7 extension. Configured once by `setup.sh`. |
 | **Project box** | `./devbox.json` (per-repo) | Optional. Provides project-specific tools (e.g. `python@3`, `go@1.21`). |
 
 When run without a project `devbox.json`, pi-box activates the base box and runs Pi. When a project `devbox.json` exists, devbox layers the project environment on top of the base box — you get both.
