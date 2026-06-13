@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Integration tests for pi-box BASH function
 # Tests verify observable CLI behavior through the public function interface.
-set -euo pipefail
+set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || { echo "Error: cannot determine script directory"; exit 1; }
 PI_BOX_SH="$SCRIPT_DIR/../pi-box.sh"
+[[ -f "$PI_BOX_SH" ]] || { echo "Error: $PI_BOX_SH not found"; exit 1; }
 
 # ---- test harness ----
 
@@ -58,12 +59,12 @@ summary() {
 # Create a temp HOME with mock devbox and pi.
 # Sets TEST_HOME, HOME, and PATH in the calling scope.
 setup_test_env() {
-  TEST_HOME=$(mktemp -d)
+  TEST_HOME=$(mktemp -d) || { echo "FATAL: mktemp failed" >&2; exit 2; }
   export HOME="$TEST_HOME"
-  mkdir -p "$TEST_HOME/bin"
+  mkdir -p "$TEST_HOME/bin" || { echo "FATAL: cannot create $TEST_HOME/bin" >&2; exit 2; }
 
   # Fake devbox: records invocations
-  cat > "$TEST_HOME/bin/devbox" << 'FAKEDEVBOX'
+  cat > "$TEST_HOME/bin/devbox" << 'FAKEDEVBOX' || { echo "FATAL: cannot write fake devbox" >&2; exit 2; }
 #!/usr/bin/env bash
 echo "devbox called with: $*" >> "$HOME/devbox-calls.log"
 if [[ "$*" == *"global shellenv --init-hook"* ]]; then
@@ -72,16 +73,16 @@ if [[ "$*" == *"global shellenv --init-hook"* ]]; then
 fi
 true
 FAKEDEVBOX
-  chmod +x "$TEST_HOME/bin/devbox"
+  chmod +x "$TEST_HOME/bin/devbox" || { echo "FATAL: cannot chmod fake devbox" >&2; exit 2; }
 
   # Fake pi: records invocations and arguments
-  cat > "$TEST_HOME/bin/pi" << 'FAKEPI'
+  cat > "$TEST_HOME/bin/pi" << 'FAKEPI' || { echo "FATAL: cannot write fake pi" >&2; exit 2; }
 #!/usr/bin/env bash
 echo "pi called with: $*" >> "$HOME/pi-calls.log"
 echo "pi-output: $*"
 true
 FAKEPI
-  chmod +x "$TEST_HOME/bin/pi"
+  chmod +x "$TEST_HOME/bin/pi" || { echo "FATAL: cannot chmod fake pi" >&2; exit 2; }
 
   export PATH="$TEST_HOME/bin:/usr/bin:/bin"
 }
@@ -97,10 +98,8 @@ trap 'rm -rf "$TEST_HOME"' EXIT
 # Source the function definition
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box "help" 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "pi-box help exits 0" 0 "$EXIT_CODE"
 assert_contains "pi receives help argument" "$OUTPUT" "pi-output: help"
@@ -127,10 +126,8 @@ trap 'rm -rf "$TEST_HOME"' EXIT
 
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box --some-flag value 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "unknown flags exits 0" 0 "$EXIT_CODE"
 assert_contains "pi receives unknown flag" "$OUTPUT" "--some-flag"
@@ -149,10 +146,8 @@ trap 'rm -rf "$TEST_HOME"' EXIT
 
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "no args exits 0" 0 "$EXIT_CODE"
 assert_contains "pi called even with no args" "$OUTPUT" "pi-output:"
@@ -170,10 +165,8 @@ trap 'rm -rf "$TEST_HOME"' EXIT
 
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box "explain this code" --verbose 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "multiple args exits 0" 0 "$EXIT_CODE"
 assert_contains "first arg passes through" "$OUTPUT" "explain this code"
@@ -200,13 +193,11 @@ cat > "$PROJECT_DIR/devbox.json" << 'DEVJSON'
 DEVJSON
 
 # Run pi-box from the project directory
-cd "$PROJECT_DIR"
+cd "$PROJECT_DIR" || { echo "FATAL: cd to project dir failed" >&2; exit 2; }
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box "help" 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "project pi-box help exits 0" 0 "$EXIT_CODE"
 
@@ -239,13 +230,11 @@ setup_test_env
 trap 'rm -rf "$TEST_HOME"' EXIT
 
 # No devbox.json in CWD
-cd "$TEST_HOME"
+cd "$TEST_HOME" || { echo "FATAL: cd to test home failed" >&2; exit 2; }
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box "help" 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "no-project pi-box help exits 0" 0 "$EXIT_CODE"
 assert_contains "pi receives help argument" "$OUTPUT" "pi-output: help"
@@ -277,13 +266,11 @@ cat > "$PROJECT_DIR/devbox.json" << 'DEVJSON'
 }
 DEVJSON
 
-cd "$PROJECT_DIR"
+cd "$PROJECT_DIR" || { echo "FATAL: cd to project dir failed" >&2; exit 2; }
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box --shell 2>&1)
 EXIT_CODE=$?
-set -e
 
 # --shell with project devbox.json should run 'devbox shell' (no pi)
 if [[ -f "$TEST_HOME/devbox-calls.log" ]]; then
@@ -321,13 +308,11 @@ cat > "$PROJECT_DIR/devbox.json" << 'DEVJSON'
 }
 DEVJSON
 
-cd "$PROJECT_DIR"
+cd "$PROJECT_DIR" || { echo "FATAL: cd to project dir failed" >&2; exit 2; }
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box "explain this code" --verbose 2>&1)
 EXIT_CODE=$?
-set -e
 
 if [[ -f "$TEST_HOME/devbox-calls.log" ]]; then
   DEVCALLS=$(cat "$TEST_HOME/devbox-calls.log")
@@ -353,10 +338,8 @@ source "$PI_BOX_SH"
 
 # Run in a subshell since --shell exec's into an interactive shell
 # Pass PI_BOX_SH into the subshell context
-set +e
 OUTPUT=$(PI_BOX_SH="$PI_BOX_SH" bash -c 'source "$PI_BOX_SH" 2>/dev/null; pi-box --shell 2>&1' 2>&1)
 EXIT_CODE=$?
-set -e
 
 # --shell exits 0 (the exec'd bash exits clean when stdin is not a tty)
 assert_exit "--shell exits 0" 0 "$EXIT_CODE"
@@ -405,15 +388,13 @@ cat > "$TEST_HOME/bin/npm" << 'FAKENPM'
 echo "npm called with: $*" >> "$HOME/npm-calls.log"
 true
 FAKENPM
-chmod +x "$TEST_HOME/bin/npm"
+chmod +x "$TEST_HOME/bin/npm" || { echo "FATAL: cannot chmod fake npm" >&2; exit 2; }
 
-cd "$TEST_HOME"
+cd "$TEST_HOME" || { echo "FATAL: cd to test home failed" >&2; exit 2; }
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box --update 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "--update exits 0" 0 "$EXIT_CODE"
 
@@ -456,28 +437,26 @@ setup_test_env
 trap 'rm -rf "$TEST_HOME"' EXIT
 
 # Create fake npm that records calls
-cat > "$TEST_HOME/bin/npm" << 'FAKENPM'
+cat > "$TEST_HOME/bin/npm" << 'FAKENPM' || { echo "FATAL: cannot write fake npm" >&2; exit 2; }
 #!/usr/bin/env bash
 echo "npm called with: $*" >> "$HOME/npm-calls.log"
 true
 FAKENPM
-chmod +x "$TEST_HOME/bin/npm"
+chmod +x "$TEST_HOME/bin/npm" || { echo "FATAL: cannot chmod fake npm" >&2; exit 2; }
 
 PROJECT_DIR="$TEST_HOME/project"
-mkdir -p "$PROJECT_DIR"
-cat > "$PROJECT_DIR/devbox.json" << 'DEVJSON'
+mkdir -p "$PROJECT_DIR" || { echo "FATAL: cannot create project dir" >&2; exit 2; }
+cat > "$PROJECT_DIR/devbox.json" << 'DEVJSON' || { echo "FATAL: cannot write project devbox.json" >&2; exit 2; }
 {
   "packages": ["python@3"]
 }
 DEVJSON
 
-cd "$PROJECT_DIR"
+cd "$PROJECT_DIR" || { echo "FATAL: cd to project dir failed" >&2; exit 2; }
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box --update 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "--update in project exits 0" 0 "$EXIT_CODE"
 
@@ -501,13 +480,11 @@ echo "=== test 12: unknown flags still pass through (regression) ==="
 setup_test_env
 trap 'rm -rf "$TEST_HOME"' EXIT
 
-cd "$TEST_HOME"
+cd "$TEST_HOME" || { echo "FATAL: cd to test home failed" >&2; exit 2; }
 source "$PI_BOX_SH"
 
-set +e
 OUTPUT=$(pi-box --custom-flag "some value" 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "unknown flag exits 0" 0 "$EXIT_CODE"
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # setup.sh — configure the pi-box base environment
-set -euo pipefail
+set -u
 
 # Pre-flight: devbox must be installed
 if ! command -v devbox &>/dev/null; then
@@ -24,11 +24,11 @@ if $ALREADY_CONFIGURED; then
   echo "nothing to do"
 else
   # Create directories
-  mkdir -p "$(dirname "$GLOBAL_CONFIG")"
-  mkdir -p "$HOME/.pi-box/npm"
+  mkdir -p "$(dirname "$GLOBAL_CONFIG")" || { echo "Error: cannot create directory $(dirname "$GLOBAL_CONFIG")"; exit 2; }
+  mkdir -p "$HOME/.pi-box/npm" || { echo "Error: cannot create directory $HOME/.pi-box/npm"; exit 2; }
 
   # Write canonical base box config
-  cat > "$GLOBAL_CONFIG" << 'DEVENDOF'
+  cat > "$GLOBAL_CONFIG" << 'DEVENDOF' || { echo "Error: cannot write $GLOBAL_CONFIG"; exit 3; }
 {
   "packages": [
     "nodejs@22"

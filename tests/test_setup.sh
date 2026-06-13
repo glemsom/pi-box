@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Integration tests for setup.sh
 # Tests verify observable CLI behavior — exit codes, stdout/stderr, file existence.
-set -euo pipefail
+set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || { echo "Error: cannot determine script directory"; exit 1; }
 SETUP_SH="$SCRIPT_DIR/../setup.sh"
+[[ -f "$SETUP_SH" ]] || { echo "Error: $SETUP_SH not found"; exit 1; }
 
 # ---- test harness ----
 
@@ -93,14 +94,14 @@ summary() {
 # Sets TEST_HOME, HOME, and PATH in the calling scope.
 # Caller must set up trap for cleanup using $TEST_HOME.
 setup_test_env() {
-  TEST_HOME=$(mktemp -d)
+  TEST_HOME=$(mktemp -d) || { echo "FATAL: mktemp failed" >&2; exit 2; }
   export HOME="$TEST_HOME"
-  mkdir -p "$TEST_HOME/bin"
-  cat > "$TEST_HOME/bin/devbox" << 'FAKEDEVBOX'
+  mkdir -p "$TEST_HOME/bin" || { echo "FATAL: cannot create $TEST_HOME/bin" >&2; exit 2; }
+  cat > "$TEST_HOME/bin/devbox" << 'FAKEDEVBOX' || { echo "FATAL: cannot write fake devbox" >&2; exit 2; }
 #!/usr/bin/env bash
 true
 FAKEDEVBOX
-  chmod +x "$TEST_HOME/bin/devbox"
+  chmod +x "$TEST_HOME/bin/devbox" || { echo "FATAL: cannot chmod fake devbox" >&2; exit 2; }
   export PATH="$TEST_HOME/bin:/usr/bin:/bin"
 }
 
@@ -109,15 +110,13 @@ FAKEDEVBOX
 echo ""
 echo "=== test 1: missing devbox ==="
 
-TEST_HOME=$(mktemp -d)
+TEST_HOME=$(mktemp -d) || { echo "FATAL: mktemp failed" >&2; exit 2; }
 trap 'rm -rf "$TEST_HOME"' EXIT
 export HOME="$TEST_HOME"
 export PATH="/usr/bin:/bin"
 
-set +e
 OUTPUT=$(bash "$SETUP_SH" 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "missing devbox exits non-zero" 1 "$EXIT_CODE"
 assert_contains "missing devbox prints error" "$OUTPUT" "devbox"
@@ -133,10 +132,8 @@ echo "=== test 2: fresh install creates global config ==="
 setup_test_env
 trap 'rm -rf "$TEST_HOME"' EXIT
 
-set +e
 OUTPUT=$(bash "$SETUP_SH" 2>&1)
 EXIT_CODE=$?
-set -e
 
 GLOBAL_CONFIG="$TEST_HOME/.local/share/devbox/global/default/devbox.json"
 
@@ -182,10 +179,8 @@ trap 'rm -rf "$TEST_HOME"' EXIT
 
 bash "$SETUP_SH" > /dev/null 2>&1
 
-set +e
 OUTPUT=$(bash "$SETUP_SH" 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "second run exits 0" 0 "$EXIT_CODE"
 assert_contains "second run prints nothing to do" "$OUTPUT" "nothing to do"
@@ -206,10 +201,8 @@ GLOBAL_CONFIG="$TEST_HOME/.local/share/devbox/global/default/devbox.json"
 bash "$SETUP_SH" > /dev/null 2>&1
 echo '{"packages":["python@3"]}' > "$GLOBAL_CONFIG"
 
-set +e
 OUTPUT=$(bash "$SETUP_SH" --force 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "--force exits 0" 0 "$EXIT_CODE"
 CONFIG_CONTENT=$(cat "$GLOBAL_CONFIG")
@@ -234,12 +227,12 @@ setup_test_env
 trap 'rm -rf "$TEST_HOME"' EXIT
 
 # Overlay a fake npm that records calls
-cat > "$TEST_HOME/bin/npm" << 'FAKENPM'
+cat > "$TEST_HOME/bin/npm" << 'FAKENPM' || { echo "FATAL: cannot write fake npm" >&2; exit 2; }
 #!/usr/bin/env bash
 echo "npm was called with args: $*" > "$HOME/npm-called.txt"
 exit 1
 FAKENPM
-chmod +x "$TEST_HOME/bin/npm"
+chmod +x "$TEST_HOME/bin/npm" || { echo "FATAL: cannot chmod fake npm" >&2; exit 2; }
 
 bash "$SETUP_SH" > /dev/null 2>&1
 
@@ -266,10 +259,8 @@ trap 'rm -rf "$TEST_HOME"' EXIT
 # Ensure pi-box function is NOT defined
 unset -f pi-box 2>/dev/null || true
 
-set +e
 OUTPUT=$(bash "$SETUP_SH" 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "setup without pi-box function exits 0" 0 "$EXIT_CODE"
 assert_contains "setup mentions adding pi-box to .bashrc" "$OUTPUT" ".bashrc"
@@ -292,10 +283,8 @@ bash "$SETUP_SH" > /dev/null 2>&1
 # pi-box function is NOT defined
 unset -f pi-box 2>/dev/null || true
 
-set +e
 OUTPUT=$(bash "$SETUP_SH" 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "idempotent run exits 0" 0 "$EXIT_CODE"
 assert_contains "prints nothing to do" "$OUTPUT" "nothing to do"
@@ -317,10 +306,8 @@ trap 'rm -rf "$TEST_HOME"' EXIT
 pi-box() { true; }
 export -f pi-box
 
-set +e
 OUTPUT=$(bash "$SETUP_SH" 2>&1)
 EXIT_CODE=$?
-set -e
 
 assert_exit "setup with pi-box function exits 0" 0 "$EXIT_CODE"
 # Should NOT contain .bashrc instruction since function exists
