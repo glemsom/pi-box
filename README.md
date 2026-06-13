@@ -30,7 +30,7 @@ Alternatively, copy the function below into your `~/.bashrc`:
 pi-box() {
   if [[ "${1:-}" == "--update" ]]; then
     eval "$(devbox global shellenv --init-hook --recompute)"
-    command -v pi &>/dev/null || { echo "Error: pi not found after shellenv" >&2; return 6; }
+    command -v pi &>/dev/null || { echo "Error: pi not found after shellenv (run 'pi-box --update' to install)" >&2; return 6; }
     npm update -g @earendil-works/pi-coding-agent
     pi install npm:@dreki-gg/pi-context7
     return
@@ -51,7 +51,7 @@ pi-box() {
   fi
 
   eval "$(devbox global shellenv --init-hook --recompute)"
-  command -v pi &>/dev/null || { echo "Error: pi not found after shellenv (run 'pi-box --update' to install)" >&2; return 6; }
+  command -v pi &>/dev/null || { echo "Error: pi not found after shellenv. If devbox reported errors above (nix permission, network, etc.), those must be fixed first. For nix issues: https://nixos.org/download. For devbox setup: https://www.jetify.com/devbox/docs/installing_devbox/" >&2; return 6; }
   pi "$@"
 }
 ```

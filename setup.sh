@@ -23,6 +23,22 @@ fi
 if $ALREADY_CONFIGURED; then
   echo "nothing to do"
 else
+  # Pre-flight: check nix store exists on Linux before configuring.
+  # Set PI_BOX_SKIP_NIX_CHECK=1 to bypass (used by tests).
+  if [[ "$(uname -s)" == "Linux" ]] && [[ "${PI_BOX_SKIP_NIX_CHECK:-}" != "1" ]]; then
+    if ! test -d /nix 2>/dev/null; then
+      echo "Error: /nix directory not found. Devbox requires nix, which needs /nix to store packages." >&2
+      echo "  Fix:  sudo mkdir -p /nix && sudo chown \$USER /nix" >&2
+      echo "  Then re-run setup.sh." >&2
+      exit 4
+    elif ! test -w /nix 2>/dev/null; then
+      echo "Error: /nix exists but is not writable by your user. Devbox requires nix, which needs write access to /nix to store packages." >&2
+      echo "  Fix:  sudo chown \$USER /nix" >&2
+      echo "  Then re-run setup.sh." >&2
+      exit 4
+    fi
+  fi
+
   # Create directories
   mkdir -p "$(dirname "$GLOBAL_CONFIG")" || { echo "Error: cannot create directory $(dirname "$GLOBAL_CONFIG")"; exit 2; }
   mkdir -p "$HOME/.pi-box/npm" || { echo "Error: cannot create directory $HOME/.pi-box/npm"; exit 2; }
@@ -52,7 +68,9 @@ DEVENDOF
   DEVERROR=$(devbox global shellenv --recompute 2>&1 >/dev/null); DEVBEXIT=$?
   if [[ ${DEVBEXIT:-0} -ne 0 || -n "${DEVERROR:-}" ]]; then
     if echo "${DEVERROR:-}" | grep -qiF -e "permission denied" -e "/nix/store" -e "creating directory"; then
-      echo "Warning: devbox cannot access /nix/store (permission denied). Check your devbox/nix installation: https://www.jetify.com/devbox/docs/installing_devbox/" >&2
+      echo "Warning: devbox cannot access /nix/store (permission denied)." >&2
+      echo "  For nix installation: https://nixos.org/download" >&2
+      echo "  For devbox setup: https://www.jetify.com/devbox/docs/installing_devbox/" >&2
     else
       echo "Warning: devbox global shellenv --recompute reported errors. First pi-box run may trigger a build." >&2
     fi

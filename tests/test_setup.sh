@@ -103,6 +103,7 @@ true
 FAKEDEVBOX
   chmod +x "$TEST_HOME/bin/devbox" || { echo "FATAL: cannot chmod fake devbox" >&2; exit 2; }
   export PATH="$TEST_HOME/bin:/usr/bin:/bin"
+  export PI_BOX_SKIP_NIX_CHECK=1
 }
 
 # ---- test 1: missing devbox ----
@@ -321,5 +322,61 @@ fi
 
 trap - EXIT
 rm -rf "$TEST_HOME"
+
+# ---- test 10: setup exits early when /nix missing on Linux ----
+
+echo ""
+echo "=== test 10: setup exits early when /nix missing ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+# Remove the skip guard so the pre-flight actually runs
+unset PI_BOX_SKIP_NIX_CHECK
+
+OUTPUT=$(bash "$SETUP_SH" 2>&1)
+EXIT_CODE=$?
+
+assert_exit "missing /nix exits 4" 4 "$EXIT_CODE"
+assert_contains "error mentions /nix" "$OUTPUT" "/nix"
+assert_contains "error gives sudo mkdir fix" "$OUTPUT" "sudo mkdir"
+assert_contains "error gives sudo chown fix" "$OUTPUT" "sudo chown"
+assert_contains "error says re-run" "$OUTPUT" "re-run"
+
+# Config should NOT have been written (pre-flight blocked before config write)
+GLOBAL_CONFIG="$TEST_HOME/.local/share/devbox/global/default/devbox.json"
+if [[ -f "$GLOBAL_CONFIG" ]]; then
+  echo "  FAIL: devbox.json was written (should have been blocked by pre-flight)"
+  FAIL=$((FAIL + 1))
+else
+  echo "  PASS: devbox.json not written (pre-flight blocked it)"
+  PASS=$((PASS + 1))
+fi
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
+# ---- test 11: setup.sh source includes "not writable" error for the /nix writability check ----
+
+echo ""
+echo "=== test 11: setup.sh has not-writable error message ==="
+
+# Since creating a non-writable /nix requires root, verify the source code
+# contains the expected diagnostic for the "exists but not writable" case.
+SETUP_SRC=$(cat "$SETUP_SH")
+if echo "$SETUP_SRC" | grep -qF 'exists but is not writable by your user'; then
+  echo "  PASS: setup.sh contains not-writable error message"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: setup.sh missing not-writable error message"
+  FAIL=$((FAIL + 1))
+fi
+if echo "$SETUP_SRC" | grep -qF 'sudo chown \$USER /nix'; then
+  echo "  PASS: setup.sh contains sudo chown fix for not-writable case"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: setup.sh missing sudo chown fix"
+  FAIL=$((FAIL + 1))
+fi
 
 summary

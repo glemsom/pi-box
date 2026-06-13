@@ -85,6 +85,7 @@ FAKEPI
   chmod +x "$TEST_HOME/bin/pi" || { echo "FATAL: cannot chmod fake pi" >&2; exit 2; }
 
   export PATH="$TEST_HOME/bin:/usr/bin:/bin"
+  export PI_BOX_SKIP_NIX_CHECK=1
 }
 
 # ---- test 1: pi-box "help" activates devbox and runs pi with "help" (tracer bullet) ----
@@ -552,6 +553,73 @@ else
   echo "  output was: $OUTPUT"
   FAIL=$((FAIL + 1))
 fi
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
+# ---- test 14: pre-flight nix check fires when /nix missing on Linux ----
+
+echo ""
+echo "=== test 14: pre-flight nix check fires when /nix missing ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+# Remove the skip guard so the pre-flight actually runs
+unset PI_BOX_SKIP_NIX_CHECK
+
+cd "$TEST_HOME" || { echo "FATAL: cd to test home failed" >&2; exit 2; }
+source "$PI_BOX_SH"
+
+OUTPUT=$(pi-box "help" 2>&1)
+EXIT_CODE=$?
+
+assert_exit "missing /nix exits 7" 7 "$EXIT_CODE"
+assert_contains "error mentions /nix" "$OUTPUT" "/nix"
+assert_contains "error gives sudo mkdir fix" "$OUTPUT" "sudo mkdir"
+assert_contains "error gives sudo chown fix" "$OUTPUT" "sudo chown"
+
+# devbox should NOT have been called (pre-flight caught it early)
+if [[ -f "$TEST_HOME/devbox-calls.log" ]]; then
+  echo "  FAIL: devbox was called (should have been blocked by pre-flight)"
+  FAIL=$((FAIL + 1))
+else
+  echo "  PASS: devbox not called (pre-flight blocked it)"
+  PASS=$((PASS + 1))
+fi
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
+# ---- test 15: _nix_store_ok detects non-writable /nix (function unit test) ----
+
+echo ""
+echo "=== test 15: _nix_store_ok detects non-writable nix dir ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+# Remove skip guard so the check actually runs
+unset PI_BOX_SKIP_NIX_CHECK
+
+cd "$TEST_HOME" || { echo "FATAL: cd to test home failed" >&2; exit 2; }
+source "$PI_BOX_SH"
+
+# Create a non-writable directory to test the check
+NONWRITABLE_DIR="$TEST_HOME/nonwritable-nix"
+mkdir -p "$NONWRITABLE_DIR" || { echo "FATAL: cannot create test dir" >&2; exit 2; }
+chmod 555 "$NONWRITABLE_DIR" || { echo "FATAL: cannot chmod test dir" >&2; exit 2; }
+
+OUTPUT=$(_nix_store_ok "$NONWRITABLE_DIR" 2>&1)
+EXIT_CODE=$?
+
+assert_exit "non-writable nix dir exits non-zero" 1 "$EXIT_CODE"
+assert_contains "error mentions dir path" "$OUTPUT" "$NONWRITABLE_DIR"
+assert_contains "error says not writable" "$OUTPUT" "not writable"
+assert_contains "error gives sudo chown fix" "$OUTPUT" "sudo chown"
+
+# Cleanup: restore writability so rm -rf works
+chmod 755 "$NONWRITABLE_DIR" 2>/dev/null || true
 
 trap - EXIT
 rm -rf "$TEST_HOME"
