@@ -50,9 +50,11 @@ pi-box() {
     exec bash
   fi
 
-  eval "$(devbox global shellenv --init-hook --recompute)"
-  command -v pi &>/dev/null || { echo "Error: pi not found after shellenv. If devbox reported errors above (nix permission, network, etc.), those must be fixed first. For nix issues: https://nixos.org/download. For devbox setup: https://www.jetify.com/devbox/docs/installing_devbox/" >&2; return 6; }
-  pi "$@"
+  (
+    eval "$(devbox global shellenv --init-hook --recompute)" || { echo "Error: devbox global shellenv failed" >&2; exit 1; }
+    command -v pi &>/dev/null || { echo "Error: pi not found after shellenv. If devbox reported errors above (nix permission, network, etc.), those must be fixed first. For nix issues: https://nixos.org/download. For devbox setup: https://www.jetify.com/devbox/docs/installing_devbox/" >&2; exit 6; }
+    pi "$@"
+  )
 }
 ```
 

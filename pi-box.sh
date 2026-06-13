@@ -58,9 +58,12 @@ pi-box() {
     exec bash || { echo "Error: exec bash failed" >&2; return 5; }
   fi
 
-  # No project devbox.json: activate global environment and run Pi
+  # No project devbox.json: activate global environment and run Pi.
+  # Run in a subshell so devbox PATH changes don't leak into the parent shell.
   _nix_store_ok || return 7
-  eval "$(devbox global shellenv --init-hook --recompute)" || { echo "Error: devbox global shellenv failed" >&2; return 1; }
-  command -v pi &>/dev/null || { echo "Error: pi not found after shellenv. If devbox reported errors above (nix permission, network, etc.), those must be fixed first. For nix issues: https://nixos.org/download. For devbox setup: https://www.jetify.com/devbox/docs/installing_devbox/" >&2; return 6; }
-  pi "$@"
+  (
+    eval "$(devbox global shellenv --init-hook --recompute)" || { echo "Error: devbox global shellenv failed" >&2; exit 1; }
+    command -v pi &>/dev/null || { echo "Error: pi not found after shellenv. If devbox reported errors above (nix permission, network, etc.), those must be fixed first. For nix issues: https://nixos.org/download. For devbox setup: https://www.jetify.com/devbox/docs/installing_devbox/" >&2; exit 6; }
+    pi "$@"
+  )
 }
