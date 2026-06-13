@@ -340,4 +340,186 @@ fi
 trap - EXIT
 rm -rf "$TEST_HOME"
 
+# ---- test 9: pi-box --shell in no-project context opens interactive shell ----
+
+echo ""
+echo "=== test 9: --shell in no-project context activates shellenv and blocks pi ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+cd "$TEST_HOME"
+source "$PI_BOX_SH"
+
+# Run in a subshell since --shell exec's into an interactive shell
+# Pass PI_BOX_SH into the subshell context
+set +e
+OUTPUT=$(PI_BOX_SH="$PI_BOX_SH" bash -c 'source "$PI_BOX_SH" 2>/dev/null; pi-box --shell 2>&1' 2>&1)
+EXIT_CODE=$?
+set -e
+
+# --shell exits 0 (the exec'd bash exits clean when stdin is not a tty)
+assert_exit "--shell exits 0" 0 "$EXIT_CODE"
+
+# devbox global shellenv should be called
+if [[ -f "$TEST_HOME/devbox-calls.log" ]]; then
+  DEVCALLS=$(cat "$TEST_HOME/devbox-calls.log")
+  assert_contains "devbox global shellenv called for --shell" "$DEVCALLS" "global shellenv --init-hook"
+else
+  echo "  FAIL: devbox was never called"
+  FAIL=$((FAIL + 1))
+fi
+
+# pi should NOT have been called (--shell is intercepted, not passed through)
+if [[ -f "$TEST_HOME/pi-calls.log" ]]; then
+  echo "  FAIL: pi was called (should not run for --shell)"
+  FAIL=$((FAIL + 1))
+else
+  echo "  PASS: pi not called for --shell"
+  PASS=$((PASS + 1))
+fi
+
+# --shell should NOT appear in pi-calls (regression check)
+if echo "$OUTPUT" | grep -qF -- "--shell"; then
+  echo "  FAIL: --shell leaked to output"
+  FAIL=$((FAIL + 1))
+else
+  echo "  PASS: --shell not in output"
+  PASS=$((PASS + 1))
+fi
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
+# ---- test 10: pi-box --update refreshes packages ----
+
+echo ""
+echo "=== test 10: --update refreshes packages ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+# Create fake npm that records calls
+cat > "$TEST_HOME/bin/npm" << 'FAKENPM'
+#!/usr/bin/env bash
+echo "npm called with: $*" >> "$HOME/npm-calls.log"
+true
+FAKENPM
+chmod +x "$TEST_HOME/bin/npm"
+
+cd "$TEST_HOME"
+source "$PI_BOX_SH"
+
+set +e
+OUTPUT=$(pi-box --update 2>&1)
+EXIT_CODE=$?
+set -e
+
+assert_exit "--update exits 0" 0 "$EXIT_CODE"
+
+# npm should have been called to update pi
+if [[ -f "$TEST_HOME/npm-calls.log" ]]; then
+  NPMCALLS=$(cat "$TEST_HOME/npm-calls.log")
+  assert_contains "npm update called for pi" "$NPMCALLS" "update -g @earendil-works/pi-coding-agent"
+else
+  echo "  FAIL: npm was never called"
+  FAIL=$((FAIL + 1))
+fi
+
+# pi should have been called to install context7
+if [[ -f "$TEST_HOME/pi-calls.log" ]]; then
+  PICALLS=$(cat "$TEST_HOME/pi-calls.log")
+  assert_contains "pi install context7 called" "$PICALLS" "install npm:@dreki-gg/pi-context7"
+else
+  echo "  FAIL: pi install was never called"
+  FAIL=$((FAIL + 1))
+fi
+
+# pi should NOT have received --update as an argument
+if echo "$OUTPUT" | grep -qF -- "--update"; then
+  echo "  FAIL: --update leaked to output"
+  FAIL=$((FAIL + 1))
+else
+  echo "  PASS: --update not passed through"
+  PASS=$((PASS + 1))
+fi
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
+# ---- test 11: --update works in project context too ----
+
+echo ""
+echo "=== test 11: --update works in project context ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+# Create fake npm that records calls
+cat > "$TEST_HOME/bin/npm" << 'FAKENPM'
+#!/usr/bin/env bash
+echo "npm called with: $*" >> "$HOME/npm-calls.log"
+true
+FAKENPM
+chmod +x "$TEST_HOME/bin/npm"
+
+PROJECT_DIR="$TEST_HOME/project"
+mkdir -p "$PROJECT_DIR"
+cat > "$PROJECT_DIR/devbox.json" << 'DEVJSON'
+{
+  "packages": ["python@3"]
+}
+DEVJSON
+
+cd "$PROJECT_DIR"
+source "$PI_BOX_SH"
+
+set +e
+OUTPUT=$(pi-box --update 2>&1)
+EXIT_CODE=$?
+set -e
+
+assert_exit "--update in project exits 0" 0 "$EXIT_CODE"
+
+# npm update should still run (global update)
+if [[ -f "$TEST_HOME/npm-calls.log" ]]; then
+  NPMCALLS=$(cat "$TEST_HOME/npm-calls.log")
+  assert_contains "npm update in project context" "$NPMCALLS" "update -g @earendil-works/pi-coding-agent"
+else
+  echo "  FAIL: npm was never called"
+  FAIL=$((FAIL + 1))
+fi
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
+# ---- test 12: built-in flags don't block unknown flags (regression) ----
+
+echo ""
+echo "=== test 12: unknown flags still pass through (regression) ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+cd "$TEST_HOME"
+source "$PI_BOX_SH"
+
+set +e
+OUTPUT=$(pi-box --custom-flag "some value" 2>&1)
+EXIT_CODE=$?
+set -e
+
+assert_exit "unknown flag exits 0" 0 "$EXIT_CODE"
+
+if [[ -f "$TEST_HOME/pi-calls.log" ]]; then
+  PICALLS=$(cat "$TEST_HOME/pi-calls.log")
+  assert_contains "unknown flag passes through" "$PICALLS" "--custom-flag"
+else
+  echo "  FAIL: pi was never called"
+  FAIL=$((FAIL + 1))
+fi
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
 summary
