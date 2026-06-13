@@ -535,7 +535,7 @@ source "$PI_BOX_SH"
 OUTPUT=$(pi-box "help" 2>&1)
 EXIT_CODE=$?
 
-assert_exit "nix failure exits non-zero" 6 "$EXIT_CODE"
+assert_exit "nix failure exits non-zero" 1 "$EXIT_CODE"
 # Error message must NOT suggest --update (won't fix nix permissions)
 if echo "$OUTPUT" | grep -qF -- "--update"; then
   echo "  FAIL: error message suggests --update (unhelpful for nix permission issues)"
@@ -574,7 +574,7 @@ source "$PI_BOX_SH"
 OUTPUT=$(pi-box "help" 2>&1)
 EXIT_CODE=$?
 
-assert_exit "missing /nix exits 7" 7 "$EXIT_CODE"
+assert_exit "missing /nix exits 1" 1 "$EXIT_CODE"
 assert_contains "error mentions /nix" "$OUTPUT" "/nix"
 assert_contains "error gives sudo mkdir fix" "$OUTPUT" "sudo mkdir"
 assert_contains "error gives sudo chown fix" "$OUTPUT" "sudo chown"

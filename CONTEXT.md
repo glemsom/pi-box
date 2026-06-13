@@ -20,6 +20,10 @@ _Avoid_: local config, repo devbox
 The idempotent setup script shipped in the pi-box repo. Edits the global devbox config to declare the base box packages, env vars, and init hooks. Does not install packages — deferred to first run.
 _Avoid_: install.sh, bootstrap
 
+**_die**:
+Shell function that prints an error message to stderr (prefixed with `Error: `) and returns exit code 1. Used by all failure paths in `pi-box.sh` to ensure consistent, human-readable error output.
+_Avoid_: _fail, _fatal, _error_handler
+
 **Pi**:
 The `pi` CLI binary from the `@earendil-works/pi-coding-agent` npm package. Runs inside the devbox environment, not on the host.
 _Avoid_: Pi agent, coding agent
