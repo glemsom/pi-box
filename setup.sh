@@ -10,22 +10,25 @@ fi
 
 GLOBAL_CONFIG="$HOME/.local/share/devbox/global/default/devbox.json"
 
+ALREADY_CONFIGURED=false
 # Check if already configured (idempotency)
 if [[ -f "$GLOBAL_CONFIG" ]]; then
   if grep -q '"nodejs' "$GLOBAL_CONFIG" 2>/dev/null; then
     if [[ "${1:-}" != "--force" ]]; then
-      echo "nothing to do"
-      exit 0
+      ALREADY_CONFIGURED=true
     fi
   fi
 fi
 
-# Create directories
-mkdir -p "$(dirname "$GLOBAL_CONFIG")"
-mkdir -p "$HOME/.pi-box/npm"
+if $ALREADY_CONFIGURED; then
+  echo "nothing to do"
+else
+  # Create directories
+  mkdir -p "$(dirname "$GLOBAL_CONFIG")"
+  mkdir -p "$HOME/.pi-box/npm"
 
-# Write canonical base box config
-cat > "$GLOBAL_CONFIG" << 'DEVENDOF'
+  # Write canonical base box config
+  cat > "$GLOBAL_CONFIG" << 'DEVENDOF'
 {
   "packages": [
     "nodejs@22"
@@ -42,4 +45,15 @@ cat > "$GLOBAL_CONFIG" << 'DEVENDOF'
 }
 DEVENDOF
 
-echo "pi-box base environment configured successfully"
+  echo "pi-box base environment configured successfully"
+fi
+
+# Check if pi-box function is available in the current shell
+if ! declare -F pi-box &>/dev/null; then
+  echo ""
+  echo "To enable the pi-box command, add the following to your ~/.bashrc:"
+  echo ""
+  echo "  source $(dirname "$(readlink -f "$0")")/pi-box.sh"
+  echo ""
+  echo "Then restart your shell or run: source ~/.bashrc"
+fi

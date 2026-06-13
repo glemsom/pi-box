@@ -24,7 +24,7 @@ assert_exit() {
 
 assert_contains() {
   local desc="$1" haystack="$2" needle="$3"
-  if echo "$haystack" | grep -qF "$needle"; then
+  if echo "$haystack" | grep -qF -- "$needle"; then
     echo "  PASS: $desc"
     PASS=$((PASS + 1))
   else
@@ -249,6 +249,86 @@ if [[ -f "$NPM_CALLED" ]]; then
   FAIL=$((FAIL + 1))
 else
   echo "  PASS: setup.sh does not run npm install"
+  PASS=$((PASS + 1))
+fi
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
+# ---- test 7: setup.sh detects missing pi-box function and prints instructions ----
+
+echo ""
+echo "=== test 7: setup.sh detects missing pi-box function ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+# Ensure pi-box function is NOT defined
+unset -f pi-box 2>/dev/null || true
+
+set +e
+OUTPUT=$(bash "$SETUP_SH" 2>&1)
+EXIT_CODE=$?
+set -e
+
+assert_exit "setup without pi-box function exits 0" 0 "$EXIT_CODE"
+assert_contains "setup mentions adding pi-box to .bashrc" "$OUTPUT" ".bashrc"
+assert_contains "setup mentions pi-box.sh" "$OUTPUT" "pi-box.sh"
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
+# ---- test 8: idempotent run still reminds about missing pi-box function ----
+
+echo ""
+echo "=== test 8: idempotent run reminds about missing pi-box ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+# First run creates config
+bash "$SETUP_SH" > /dev/null 2>&1
+
+# pi-box function is NOT defined
+unset -f pi-box 2>/dev/null || true
+
+set +e
+OUTPUT=$(bash "$SETUP_SH" 2>&1)
+EXIT_CODE=$?
+set -e
+
+assert_exit "idempotent run exits 0" 0 "$EXIT_CODE"
+assert_contains "prints nothing to do" "$OUTPUT" "nothing to do"
+assert_contains "still reminds about .bashrc" "$OUTPUT" ".bashrc"
+assert_contains "still mentions pi-box.sh" "$OUTPUT" "pi-box.sh"
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
+# ---- test 9: setup.sh is silent about pi-box when function already exists ----
+
+echo ""
+echo "=== test 9: setup.sh silent when pi-box function present ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+# Define a dummy pi-box function in the test's shell
+pi-box() { true; }
+export -f pi-box
+
+set +e
+OUTPUT=$(bash "$SETUP_SH" 2>&1)
+EXIT_CODE=$?
+set -e
+
+assert_exit "setup with pi-box function exits 0" 0 "$EXIT_CODE"
+# Should NOT contain .bashrc instruction since function exists
+if echo "$OUTPUT" | grep -qF -- ".bashrc"; then
+  echo "  FAIL: setup printed .bashrc instruction even though pi-box function exists"
+  FAIL=$((FAIL + 1))
+else
+  echo "  PASS: setup does not print .bashrc instruction when function exists"
   PASS=$((PASS + 1))
 fi
 
