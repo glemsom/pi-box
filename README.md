@@ -29,7 +29,8 @@ Alternatively, copy the function below into your `~/.bashrc`:
 ```bash
 pi-box() {
   if [[ "${1:-}" == "--update" ]]; then
-    eval "$(devbox global shellenv --init-hook)"
+    eval "$(devbox global shellenv --init-hook --recompute)"
+    command -v pi &>/dev/null || { echo "Error: pi not found after shellenv" >&2; return 6; }
     npm update -g @earendil-works/pi-coding-agent
     pi install npm:@dreki-gg/pi-context7
     return
@@ -45,11 +46,12 @@ pi-box() {
   fi
 
   if [[ "${1:-}" == "--shell" ]]; then
-    eval "$(devbox global shellenv --init-hook)"
+    eval "$(devbox global shellenv --init-hook --recompute)"
     exec bash
   fi
 
-  eval "$(devbox global shellenv --init-hook)"
+  eval "$(devbox global shellenv --init-hook --recompute)"
+  command -v pi &>/dev/null || { echo "Error: pi not found after shellenv (run 'pi-box --update' to install)" >&2; return 6; }
   pi "$@"
 }
 ```

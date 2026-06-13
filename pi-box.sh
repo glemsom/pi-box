@@ -11,7 +11,8 @@ pi-box() {
   # --update flag: refresh Pi and extensions to latest versions.
   # Works in both project and no-project contexts.
   if [[ "${1:-}" == "--update" ]]; then
-    eval "$(devbox global shellenv --init-hook)" || { echo "Error: devbox global shellenv failed" >&2; return 1; }
+    eval "$(devbox global shellenv --init-hook --recompute)" || { echo "Error: devbox global shellenv failed" >&2; return 1; }
+    command -v pi &>/dev/null || { echo "Error: pi not found after shellenv" >&2; return 6; }
     npm update -g @earendil-works/pi-coding-agent || { echo "Error: npm update failed" >&2; return 2; }
     pi install npm:@dreki-gg/pi-context7 || { echo "Error: pi install context7 failed" >&2; return 3; }
     return
@@ -31,11 +32,12 @@ pi-box() {
 
   # --shell flag (no-project): activate global environment, drop into interactive shell.
   if [[ "${1:-}" == "--shell" ]]; then
-    eval "$(devbox global shellenv --init-hook)" || { echo "Error: devbox global shellenv failed" >&2; return 1; }
+    eval "$(devbox global shellenv --init-hook --recompute)" || { echo "Error: devbox global shellenv failed" >&2; return 1; }
     exec bash || { echo "Error: exec bash failed" >&2; return 5; }
   fi
 
   # No project devbox.json: activate global environment and run Pi
-  eval "$(devbox global shellenv --init-hook)" || { echo "Error: devbox global shellenv failed" >&2; return 1; }
+  eval "$(devbox global shellenv --init-hook --recompute)" || { echo "Error: devbox global shellenv failed" >&2; return 1; }
+  command -v pi &>/dev/null || { echo "Error: pi not found after shellenv (run 'pi-box --update' to install)" >&2; return 6; }
   pi "$@"
 }

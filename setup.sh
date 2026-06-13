@@ -46,6 +46,12 @@ else
 DEVENDOF
 
   echo "pi-box base environment configured successfully"
+
+  # Trigger initial environment build so .hooks.sh is generated.
+  # Shellenv output is discarded — we only need the side effect of building.
+  devbox global shellenv --recompute > /dev/null 2>&1 || {
+    echo "Warning: devbox global shellenv --recompute failed — first pi-box run may trigger a build" >&2
+  }
 fi
 
 # Check if pi-box function is available in the current shell
