@@ -5,14 +5,12 @@
 #
 # The function activates the global devbox environment and runs Pi.
 # On first invocation, the init_hook installs Pi and extensions automatically.
-set -u
-
 pi-box() {
   # --update flag: refresh Pi and extensions to latest versions.
   # Works in both project and no-project contexts.
   if [[ "${1:-}" == "--update" ]]; then
     eval "$(devbox global shellenv --init-hook --recompute)" || { echo "Error: devbox global shellenv failed" >&2; return 1; }
-    command -v pi &>/dev/null || { echo "Error: pi not found after shellenv" >&2; return 6; }
+    command -v pi &>/dev/null || { echo "Error: pi not found after shellenv. If devbox reported errors above (nix permission, network, etc.), those must be fixed first. See https://www.jetify.com/devbox/docs/installing_devbox/ for devbox setup." >&2; return 6; }
     npm update -g @earendil-works/pi-coding-agent || { echo "Error: npm update failed" >&2; return 2; }
     pi install npm:@dreki-gg/pi-context7 || { echo "Error: pi install context7 failed" >&2; return 3; }
     return
@@ -38,6 +36,6 @@ pi-box() {
 
   # No project devbox.json: activate global environment and run Pi
   eval "$(devbox global shellenv --init-hook --recompute)" || { echo "Error: devbox global shellenv failed" >&2; return 1; }
-  command -v pi &>/dev/null || { echo "Error: pi not found after shellenv (run 'pi-box --update' to install)" >&2; return 6; }
+  command -v pi &>/dev/null || { echo "Error: pi not found after shellenv. If devbox reported errors above (nix permission, network, etc.), those must be fixed first. See https://www.jetify.com/devbox/docs/installing_devbox/ for devbox setup." >&2; return 6; }
   pi "$@"
 }

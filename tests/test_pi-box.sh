@@ -499,4 +499,61 @@ fi
 trap - EXIT
 rm -rf "$TEST_HOME"
 
+# ---- test 13: devbox nix failure gives diagnostic error (not just --update) ----
+
+echo ""
+echo "=== test 13: devbox nix failure gives diagnostic error ==="
+
+setup_test_env
+trap 'rm -rf "$TEST_HOME"' EXIT
+
+# Override fake pi — pi must NOT be on PATH for this test
+rm -f "$TEST_HOME/bin/pi"
+
+# Override fake devbox to simulate nix permission failure:
+# - prints nix + devbox errors to stderr
+# - outputs a shellenv that does NOT include pi in PATH
+# - exits 0 (so eval succeeds but pi isn't available)
+cat > "$TEST_HOME/bin/devbox" << 'FAKEDEVBOX'
+#!/usr/bin/env bash
+echo "devbox called with: $*" >> "$HOME/devbox-calls.log"
+if [[ "$*" == *"global shellenv --init-hook"* ]]; then
+  echo "Info: Ensuring packages are installed." >&2
+  echo "Error: nix: command error: nix --extra-experimental-features ca-derivations --option experimental-features 'nix-command flakes fetch-closure' path-info --offline --json /nix/store/ac9bklddx1klg92hj7r08xmpky1nwag2-nodejs-22.22.3: creating directory \"/nix/store\": Permission denied: exit code 1" >&2
+  echo "Error: There was an internal error. Run with DEVBOX_DEBUG=1 for a detailed error message, and consider reporting it at https://github.com/jetify-com/devbox/issues" >&2
+  # Emit shellenv WITHOUT pi in PATH — simulates devbox exiting 0 but broken env
+  echo "export PATH=\"/usr/bin:/bin\""
+fi
+true
+FAKEDEVBOX
+chmod +x "$TEST_HOME/bin/devbox"
+
+cd "$TEST_HOME" || { echo "FATAL: cd to test home failed" >&2; exit 2; }
+source "$PI_BOX_SH"
+
+OUTPUT=$(pi-box "help" 2>&1)
+EXIT_CODE=$?
+
+assert_exit "nix failure exits non-zero" 6 "$EXIT_CODE"
+# Error message must NOT suggest --update (won't fix nix permissions)
+if echo "$OUTPUT" | grep -qF -- "--update"; then
+  echo "  FAIL: error message suggests --update (unhelpful for nix permission issues)"
+  FAIL=$((FAIL + 1))
+else
+  echo "  PASS: error message does not suggest --update"
+  PASS=$((PASS + 1))
+fi
+# Error message should mention nix or devbox or permission as possible causes
+if echo "$OUTPUT" | grep -qFi -e "nix" -e "devbox" -e "permission" -e "check the output above" -e "diagnos"; then
+  echo "  PASS: error message contains diagnostic hint (nix/devbox/permission)"
+  PASS=$((PASS + 1))
+else
+  echo "  FAIL: error message lacks diagnostic hint"
+  echo "  output was: $OUTPUT"
+  FAIL=$((FAIL + 1))
+fi
+
+trap - EXIT
+rm -rf "$TEST_HOME"
+
 summary

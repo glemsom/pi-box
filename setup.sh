@@ -48,10 +48,15 @@ DEVENDOF
   echo "pi-box base environment configured successfully"
 
   # Trigger initial environment build so .hooks.sh is generated.
-  # Shellenv output is discarded — we only need the side effect of building.
-  devbox global shellenv --recompute > /dev/null 2>&1 || {
-    echo "Warning: devbox global shellenv --recompute failed — first pi-box run may trigger a build" >&2
-  }
+  # Capture stderr and exit code for diagnostics — nix permission errors are common.
+  DEVERROR=$(devbox global shellenv --recompute 2>&1 >/dev/null); DEVBEXIT=$?
+  if [[ ${DEVBEXIT:-0} -ne 0 || -n "${DEVERROR:-}" ]]; then
+    if echo "${DEVERROR:-}" | grep -qiF -e "permission denied" -e "/nix/store" -e "creating directory"; then
+      echo "Warning: devbox cannot access /nix/store (permission denied). Check your devbox/nix installation: https://www.jetify.com/devbox/docs/installing_devbox/" >&2
+    else
+      echo "Warning: devbox global shellenv --recompute reported errors. First pi-box run may trigger a build." >&2
+    fi
+  fi
 fi
 
 # Check if pi-box function is available in the current shell
