@@ -8,6 +8,11 @@ if ! command -v devbox &>/dev/null; then
   exit 1
 fi
 
+# Extract package definitions from pi-box.sh (single source of truth).
+# Uses grep+eval to import only the variable assignments, not the functions.
+_PI_BOX_SH="$(dirname "$(readlink -f "$0")")/pi-box.sh"
+eval "$(grep '^PI_BOX_PI_PKG=\|^PI_BOX_CTX7_PKG=' "$_PI_BOX_SH")" || { echo "Error: cannot read package definitions from pi-box.sh"; exit 5; }
+
 GLOBAL_CONFIG="$HOME/.local/share/devbox/global/default/devbox.json"
 
 ALREADY_CONFIGURED=false
@@ -44,18 +49,18 @@ else
   mkdir -p "$HOME/.pi-box/npm" || { echo "Error: cannot create directory $HOME/.pi-box/npm"; exit 2; }
 
   # Write canonical base box config
-  cat > "$GLOBAL_CONFIG" << 'DEVENDOF' || { echo "Error: cannot write $GLOBAL_CONFIG"; exit 3; }
+  cat > "$GLOBAL_CONFIG" << DEVENDOF || { echo "Error: cannot write $GLOBAL_CONFIG"; exit 3; }
 {
   "packages": [
     "nodejs@26"
   ],
   "env": {
-    "NPM_CONFIG_PREFIX": "$HOME/.pi-box/npm",
-    "PATH": "$HOME/.pi-box/npm/bin:$PATH"
+    "NPM_CONFIG_PREFIX": "\$HOME/.pi-box/npm",
+    "PATH": "\$HOME/.pi-box/npm/bin:\$PATH"
   },
   "shell": {
     "init_hook": [
-      "command -v pi || (npm install -g @earendil-works/pi-coding-agent && pi install npm:@dreki-gg/pi-context7)"
+      "command -v pi || (npm install -g ${PI_BOX_PI_PKG} && pi install npm:${PI_BOX_CTX7_PKG})"
     ]
   }
 }

@@ -9,6 +9,11 @@
 # Devbox requires nix, which needs /nix to store packages.
 # Set PI_BOX_SKIP_NIX_CHECK=1 to bypass (used by tests).
 
+# Package definitions — single source of truth for Pi and the default extension.
+# Used by setup.sh (to generate the init_hook) and the --update handler below.
+PI_BOX_PI_PKG="@earendil-works/pi-coding-agent"
+PI_BOX_CTX7_PKG="@dreki-gg/pi-context7"
+
 _die() {
   echo "Error: $1" >&2
   return 1
@@ -39,9 +44,9 @@ pi-box() {
     command -v pi &>/dev/null || { _die "pi not found after shellenv. If devbox reported errors above (nix permission, network, etc.), those must be fixed first.
   For nix issues: https://nixos.org/download
   For devbox setup: https://www.jetify.com/devbox/docs/installing_devbox/"; return 1; }
-    npm update -g @earendil-works/pi-coding-agent || { _die "npm update -g @earendil-works/pi-coding-agent failed.
+    npm update -g "$PI_BOX_PI_PKG" || { _die "npm update -g $PI_BOX_PI_PKG failed.
   Check your network connection and npm registry access."; return 1; }
-    pi install npm:@dreki-gg/pi-context7 || { _die "pi install npm:@dreki-gg/pi-context7 failed.
+    pi install "npm:$PI_BOX_CTX7_PKG" || { _die "pi install npm:$PI_BOX_CTX7_PKG failed.
   Check your network connection and that the pi binary is working (run: pi --version)."; return 1; }
     return
   fi
